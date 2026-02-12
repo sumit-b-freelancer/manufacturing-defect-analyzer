@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="flex flex-col gap-8">
+    <!-- Header Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div
+            class="bg-gradient-to-br from-purple-900 to-spotify-card p-6 rounded-lg shadow-lg hover:brightness-110 transition-all cursor-pointer group">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-spotify-subtext font-bold uppercase text-xs tracking-wider">Detection Rate</h3>
+                <i data-lucide="activity" class="text-purple-400 group-hover:scale-110 transition-transform"></i>
+            </div>
+            <div class="text-4xl font-bold text-white mb-1">{{ stats.detection_rate }}%</div>
+            <div class="text-xs text-spotify-subtext flex items-center gap-1">Real-time accuracy</div>
+        </div>
+
+        <div
+            class="bg-gradient-to-br from-blue-900 to-spotify-card p-6 rounded-lg shadow-lg hover:brightness-110 transition-all cursor-pointer group">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-spotify-subtext font-bold uppercase text-xs tracking-wider">Parts Scanned</h3>
+                <i data-lucide="box" class="text-blue-400 group-hover:scale-110 transition-transform"></i>
+            </div>
+            <div class="text-4xl font-bold text-white mb-1">{{ stats.total_scanned|default:"0" }}</div>
+            <div class="text-xs text-spotify-subtext">Total processed</div>
+        </div>
+
+        <div
+            class="bg-gradient-to-br from-spotify-defect/20 to-spotify-card p-6 rounded-lg shadow-lg hover:brightness-110 transition-all cursor-pointer group">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-spotify-subtext font-bold uppercase text-xs tracking-wider">Defects Found</h3>
+                <i data-lucide="alert-triangle"
+                    class="text-spotify-defect group-hover:scale-110 transition-transform"></i>
+            </div>
+            <div class="text-4xl font-bold text-spotify-defect mb-1">{{ stats.defects_found|default:"0" }}</div>
+            <div class="text-xs text-spotify-defect bg-spotify-defect/10 px-2 py-1 rounded inline-block">Action Required
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload & Inference Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Upload Card -->
+        <div class="bg-spotify-card rounded-lg p-6 shadow-xl">
+            <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <i data-lucide="upload-cloud" class="text-spotify-primary"></i>
+                Upload Inspection Image
+            </h2>
+
+            <form method="post" enctype="multipart/form-data" action="{% url 'dashboard:upload' %}"
+                class="flex flex-col gap-4">
+                {% csrf_token %}
+                <div class="border-2 border-dashed border-[#404040] rounded-lg p-12 text-center hover:border-spotify-primary hover:bg-[#202020] transition-all cursor-pointer relative"
+                    id="drop-zone">
+                    <input type="file" name="image" id="file-input"
+                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="previewImage(event)">
+                    <div class="flex flex-col items-center gap-3" id="upload-placeholder">
+                        <div class="bg-[#282828] p-4 rounded-full">
+                            <i data-lucide="image-plus" class="w-8 h-8 text-spotify-subtext"></i>
+                        </div>
+                        <span class="text-spotify-subtext font-semibold">Drag & drop or click to upload</span>
+                        <span class="text-xs text-[#666]">Supports JPG, PNG (Max 5MB)</span>
+                    </div>
+                    <img id="image-preview" src="#" alt="Preview" class="hidden max-h-64 mx-auto rounded-md shadow-lg">
+                </div>
+
+                <button type="submit"
+                    class="bg-spotify-primary text-black font-bold py-3 rounded-full hover:scale-105 active:scale-95 transition-transform mt-2">
+                    Start Analysis
+                </button>
+            </form>
+        </div>
+
+        <!-- Result Card -->
+        <div class="bg-spotify-card rounded-lg p-6 shadow-xl relative overflow-hidden">
+            <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <i data-lucide="scan-line" class="text-purple-500"></i>
+                Analysis Results
+            </h2>
+
+            {% if result %}
+            {% if result.error %}
+            <div class="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-md flex items-center gap-3">
+                <i data-lucide="x-circle"></i>
+                {{ result.error }}
+            </div>
+            {% else %}
+            <div class="flex flex-col gap-6">
+                <div class="flex items-center gap-6">
+                    <div class="relative group">
+                        <img src="{{ result.image_url }}"
+                            class="w-32 h-32 object-cover rounded-md border-2 {% if result.prediction == 'Defect' %}border-spotify-defect{% else %}border-spotify-primary{% endif %}">
+                        <div
+                            class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md">
+                            <i data-lucide="maximize-2" class="text-white"></i>
+                        </div>
+                    </div>
+
+                    <div class="flex-1">
+                        <div class="text-xs text-spotify-subtext uppercase tracking-wider mb-1">Prediction</div>
+                        <div
+                            class="text-3xl font-bold mb-2 {% if result.prediction == 'Defect' %}text-spotify-defect{% else %}text-spotify-primary{% endif %}">
+                            {{ result.prediction }}
+                        </div>
+
+                        <div class="text-xs text-spotify-subtext uppercase tracking-wider mb-1">Confidence</div>
+                        <div class="w-full bg-[#3e3e3e] rounded-full h-2">
+                            <div class="bg-white h-2 rounded-full" style="width: {{ result.confidence }}%"></div>
+                        </div>
+                        <div class="text-right text-xs mt-1 text-white font-mono">{{ result.confidence }}%</div>
+
+                        <!-- Probability Breakdown -->
+                        <div class="grid grid-cols-2 gap-4 mt-4 border-t border-[#333] pt-4">
+                            <div>
+                                <div class="text-[10px] text-spotify-subtext uppercase tracking-wider mb-1">Defect</div>
+                                <div class="w-full bg-[#3e3e3e] rounded-full h-1.5">
+                                    <div class="bg-spotify-defect h-1.5 rounded-full"
+                                        style="width:{{result.defect_prob}}%"></div>
+                                </div>
+                                <div class="text-right text-[10px] mt-0.5 text-spotify-defect font-mono">
+                                    <span>{{result.defect_prob}}</span>%</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-spotify-subtext uppercase tracking-wider mb-1">No Defect
+                                </div>
+                                <div class="w-full bg-[#3e3e3e] rounded-full h-1.5">
+                                    <div class="bg-spotify-primary h-1.5 rounded-full"
+                                        style="width:{{result.nodefect_prob}}%"></div>
+                                </div>
+                                <div class="text-right text-[10px] mt-0.5 text-spotify-primary font-mono">
+                                    <span>{{result.nodefect_prob}}</span>%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if result.heatmap_b64 %}
+                <div class="mt-4">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2 text-spotify-subtext">
+                        <i data-lucide="layers"></i> AI Explainability (Grad-CAM)
+                    </h3>
+                    <div class="relative rounded-lg overflow-hidden border border-[#333]">
+                        <img src="data:image/png;base64,{{ result.heatmap_b64 }}"
+                            class="w-full h-48 object-cover opacity-80 hover:opacity-100 transition-opacity">
+                        <div class="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs text-white">Heatmap
+                            Overlay</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="h-64 flex flex-col items-center justify-center text-spotify-subtext opacity-50">
+                <i data-lucide="cpu" class="w-16 h-16 mb-4"></i>
+                <p>Awaiting Input Data...</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent Detections Stream (New Section) -->
+<div class="bg-spotify-card rounded-lg p-6 shadow-xl">
+    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+        <i data-lucide="history" class="text-spotify-subtext"></i>
+        Recent Detections
+    </h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-spotify-subtext">
+            <thead class="border-b border-[#333] text-xs uppercase tracking-wider">
+                <tr>
+                    <th class="pb-3 pl-2">Status</th>
+                    <th class="pb-3">Confidence</th>
+                    <th class="pb-3">Time</th>
+                    <th class="pb-3 text-right pr-2">Image</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#333]">
+                {% for log in recent_logs %}
+                <tr class="group hover:bg-[#282828] transition-colors">
+                    <td
+                        class="py-4 pl-2 font-medium {% if log.prediction == 'Defect' %}text-spotify-defect{% else %}text-spotify-primary{% endif %}">
+                        {{ log.prediction }}
+                    </td>
+                    <td class="py-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-16 h-1.5 bg-[#404040] rounded-full">
+                                <div class="h-1.5 rounded-full bg-current"
+                                    style="width: {{ log.confidence }}%; color: inherit"></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-bold">{{ log.confidence }}%</span>
+                                <span class="text-[10px] opacity-70">D: {{ log.defect_prob }}% | G: {{ log.nodefect_prob
+                                    }}%</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4">{{ log.timestamp|timesince }} ago</td>
+                    <td class="py-4 text-right pr-2">
+                        <a href="{{ log.image.url }}" target="_blank"
+                            class="text-white hover:underline flex items-center justify-end gap-1">
+                            View <i data-lucide="external-link" class="w-3 h-3"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="py-8 text-center text-spotify-subtext italic">No inspections recorded yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function previewImage(event) {
+        const reader = new FileReader();
+        reader.onload = function () {
+            const output = document.getElementById('image-preview');
+            const placeholder = document.getElementById('upload-placeholder');
+            output.src = reader.result;
+            output.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        };
+        reader.readAsDataURL(event.target.files[0]);
+    }
+</script>
+{% endblock %}

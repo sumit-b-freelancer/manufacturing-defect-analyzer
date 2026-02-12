@@ -1,0 +1,18 @@
+stages:
+  generate_data:
+    cmd: python src/synthetic_data.py --num_images 10 --output_dir data/synthetic
+    deps:
+      - src/synthetic_data.py
+    outs:
+      - data/synthetic
+
+  train:
+    cmd: python src/train.py --data_dir data --epochs 10
+    deps:
+      - data
+      - src/train.py
+    outs:
+      - best_model.pth
+    metrics:
+      - metrics.json:
+          cache: false

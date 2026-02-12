@@ -1,0 +1,38 @@
+name: Retrain Model on Data Update
+
+on:
+  push:
+    paths:
+      - 'data.dvc' # Trigger when data version changes
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Pull Data with DVC
+        run: |
+          dvc pull
+
+      - name: Train Model
+        run: |
+          python src/train.py --data_dir data --epochs 5
+        
+      # In a real scenario, we would push the model to a registry or DVC here
+      - name: Upload Model Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: trained-model
+          path: best_model.pth
