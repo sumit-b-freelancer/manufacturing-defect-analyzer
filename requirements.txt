@@ -18,3 +18,4 @@ transformers
 accelerate
 opencv-python
 django
+psycopg2-binary
